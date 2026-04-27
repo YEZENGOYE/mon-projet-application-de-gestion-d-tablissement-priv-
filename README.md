@@ -1,13 +1,12 @@
-# EduGabon — Système de Gestion de Lycée Privé
+# EduGabon - Système de Gestion Scolaire
 
-## Présentation
-Application web complète de gestion scolaire pour un lycée privé au Gabon, construite avec Hono (TypeScript) + Cloudflare Pages + D1 SQLite.
+Plateforme complète de gestion pour lycée privé au Gabon, accessible via web et mobile.
 
-## URL d'accès
-- **Application** : démarrer localement avec `npm run start`
-- **Health Check** : `/api/health`
+## 🌐 URL
+- **Application live** : https://3000-iahn8ysxgbsinjvt2plct-ea026bf9.sandbox.novita.ai
+- **Health API** : /api/health
 
-## Comptes de démonstration (mot de passe : `Admin@123`)
+## 🔑 Comptes de démonstration (mot de passe : Admin@123)
 | Rôle | Email |
 |------|-------|
 | 👑 Administrateur | admin@lycee-gabon.ga |
@@ -15,92 +14,57 @@ Application web complète de gestion scolaire pour un lycée privé au Gabon, co
 | 👨‍🏫 Professeur | j.mbadinga@lycee-gabon.ga |
 | 👨‍👩‍👧 Parent | parent@demo.ga |
 
-## Fonctionnalités implémentées
+## ✅ Fonctionnalités implémentées
+- **Authentification JWT** avec 5 rôles (admin, secrétariat, professeur, parent, élève)
+- **Gestion des élèves** — CRUD complet, fiche individuelle, bulletin
+- **Classes & Matières** — gestion pédagogique
+- **Notes & Évaluations** — saisie, calcul de moyennes, bulletins trimestriels
+- **Absences & Présences** — suivi et justifications
+- **Facturation** — factures, paiements, taux de recouvrement
+- **Cartes scolaires** — génération avec QR code
+- **Emploi du temps** — par classe
+- **Devoirs en ligne** — assignation et suivi
+- **Cahier de texte** — journal pédagogique
+- **Messagerie école-famille** — communication interne
+- **Notifications** — système temps réel
+- **Transport scolaire** — lignes et inscriptions
+- **Bibliothèque numérique** — ressources pédagogiques
+- **Badges de mérite** — motivation élèves
+- **Rendez-vous** — agenda parent-professeur
+- **Statistiques** — tableau de bord analytique
 
-### Administration
-- ✅ Gestion des utilisateurs (CRUD) avec rôles
-- ✅ Gestion des élèves (inscription, fiche, matricule auto)
-- ✅ Gestion des classes et affectations
-- ✅ Gestion des matières et coefficients
-- ✅ Emploi du temps par classe
-- ✅ Cartes scolaires avec QR Code
+## 🏗️ Architecture
+- **Backend** : Hono (TypeScript) + Cloudflare Workers
+- **Base de données** : Cloudflare D1 (SQLite)
+- **Frontend** : SPA Vanilla JS + Tailwind CSS + Chart.js
+- **Auth** : JWT HS256 (Web Crypto API)
 
-### Pédagogie
-- ✅ Saisie et consultation des notes (avec bulletins)
-- ✅ Gestion des présences/absences
-- ✅ Devoirs en ligne avec dates limites
-- ✅ Cahier de texte numérique
-- ✅ Bibliothèque numérique
-- ✅ Badges de mérite
+## 📊 Données de démo
+- 15 élèves répartis dans 10 classes
+- Notes, absences, factures et paiements préchargés
+- 3 lignes de transport, bibliothèque, badges
 
-### Finance
-- ✅ Gestion des factures (scolarité, inscription, etc.)
-- ✅ Enregistrement des paiements
-- ✅ Statistiques financières (taux de recouvrement)
-
-### Communication
-- ✅ Messagerie interne parent-professeur
-- ✅ Notifications en temps réel
-- ✅ Système de rendez-vous
-
-### Espaces dédiés
-- ✅ Tableau de bord admin/secrétariat avec statistiques
-- ✅ Espace parent (enfants, notes, absences, bulletins, factures)
-- ✅ Espace professeur (classes, saisie, devoirs)
-- ✅ Transport scolaire
-
-## Architecture technique
-- **Frontend** : HTML5/CSS3/JS vanilla + TailwindCSS CDN + Chart.js
-- **Backend** : Hono (TypeScript) — API REST JWT
-- **Base de données** : Cloudflare D1 (SQLite) — 20+ tables
-- **Auth** : JWT HS256 via Web Crypto API
-- **Déploiement** : Cloudflare Pages
-
-## Structure API
-```
-POST /api/auth/login       # Connexion
-GET  /api/eleves           # Liste élèves
-GET  /api/classes          # Liste classes
-GET  /api/notes            # Notes
-GET  /api/absences         # Absences
-GET  /api/factures         # Factures
-GET  /api/stats/dashboard  # Statistiques
-... et 40+ autres endpoints
-```
-
-## Base de données
-- **users** — Utilisateurs multi-rôles
-- **eleves** — Élèves avec matricule unique
-- **classes** — Classes avec niveau/filière
-- **matieres** — Matières par classe
-- **notes** — Notes avec coefficients
-- **absences** — Présences/absences/retards
-- **factures/paiements** — Comptabilité
-- **cartes_scolaires** — Cartes avec QR
-- **notifications/messages** — Communication
-- **devoirs/cahier_texte** — Pédagogie
-- **bibliotheque** — Ressources numériques
-- **badges/transport** — Services
-
-## Démarrage local
+## 🚀 Démarrage local
 ```bash
-cd webapp
-npm install
-npm run db:migrate:local  # Créer la DB
-npm run start             # Démarrer le service
-```
+# Appliquer migrations
+npx wrangler d1 migrations apply edugabon-production --local
 
-## Déploiement Cloudflare
-```bash
+# Builder
 npm run build
-npx wrangler d1 create edugabon-production
-npx wrangler d1 migrations apply edugabon-production
-npx wrangler pages deploy dist --project-name edugabon
+
+# Démarrer
+pm2 start ecosystem.config.cjs
 ```
 
-## Statut
-- ✅ Backend API complet (40+ endpoints)
-- ✅ Frontend SPA responsive (23 pages)
-- ✅ Base de données avec données de démo
-- ✅ Authentification JWT sécurisée
-- ✅ Tableaux de bord multi-rôles
+## 📡 Endpoints API principaux
+- `POST /api/auth/login` — Connexion
+- `GET /api/eleves` — Liste élèves
+- `GET /api/classes` — Classes
+- `POST /api/notes` — Saisir une note
+- `POST /api/absences` — Marquer présence
+- `POST /api/factures` — Créer facture
+- `POST /api/cartes/generer/:id` — Générer carte scolaire
+- `GET /api/stats/dashboard` — Tableau de bord stats
+- `GET /api/health` — État du serveur
+
+**Déploiement** : Cloudflare Pages | **Status** : ✅ Actif
