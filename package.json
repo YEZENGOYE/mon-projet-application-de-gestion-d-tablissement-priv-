@@ -1,0 +1,30 @@
+{
+  "name": "edugabon",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "EduGabon - Système de Gestion Scolaire - Lycée Privé Gabon",
+  "scripts": {
+    "dev": "vite",
+    "dev:sandbox": "wrangler pages dev dist --d1=edugabon-production --local --ip 0.0.0.0 --port 3000",
+    "build": "vite build",
+    "preview": "wrangler pages dev dist",
+    "deploy": "npm run build && wrangler pages deploy dist --project-name edugabon",
+    "cf-typegen": "wrangler types --env-interface CloudflareBindings",
+    "db:migrate:local": "wrangler d1 migrations apply edugabon-production --local",
+    "db:seed": "wrangler d1 execute edugabon-production --local --file=./migrations/0002_seed_data.sql",
+    "db:reset": "rm -rf .wrangler/state && npm run db:migrate:local && npm run db:seed",
+    "db:console": "wrangler d1 execute edugabon-production --local"
+  },
+  "dependencies": {
+    "hono": "^4.12.7",
+    "jose": "^5.10.0",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250705.0",
+    "@hono/vite-cloudflare-pages": "^0.4.2",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5",
+    "wrangler": "^4.4.0"
+  }
+}

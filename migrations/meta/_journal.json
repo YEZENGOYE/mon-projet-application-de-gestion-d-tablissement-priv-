@@ -1,0 +1,19 @@
+{
+  "version": "7",
+  "entries": [
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1714204800000,
+      "tag": "0001_initial_schema",
+      "breakpoints": false
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1714204801000,
+      "tag": "0002_seed_data",
+      "breakpoints": false
+    }
+  ]
+}
