@@ -629,3 +629,19 @@ tbody td { padding: 0.75rem 1rem; font-size: 0.875rem; color: #334155; }
 /* ---- PROGRESS BAR ---- */
 .progress-bar { background: #e2e8f0; border-radius: 4px; height: 8px; overflow: hidden; }
 .progress-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; background: var(--primary); }
+
+
+/* ---- MODAL XL ---- */
+.modal-xl { max-width: 900px; width: 95vw; }
+.modal-xl .modal-body { max-height: 75vh; overflow-y: auto; }
+
+/* ---- BULLETIN ---- */
+.bulletin-container { font-family: 'Segoe UI', sans-serif; }
+.bulletin-header {
+  background: linear-gradient(135deg, #1a6b3c, #0f4a2a);
+  color: white;
+  text-align: center;
+  padding: 1.5rem 1rem;
+}
+.bulletin-school { font-size: 1.1rem; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; }
+.bulletin-subtitle { font-size: 0.75rem; opacity: 0.85; margin-top: 0.3rem; letter-spacing: 0.5px; }

@@ -18,6 +18,7 @@ import {
   cartesRoutes, statsRoutes, devoirsRoutes, cahierRoutes,
   rdvRoutes, badgesRoutes, transportRoutes, bibliothequeRoutes, edtRoutes
 } from './routes/features.js';
+import { bulletinsRoutes } from './routes/bulletins.js';
 
 const app = new Hono<{ Bindings: Bindings }>();
 
@@ -51,6 +52,7 @@ app.route('/api/badges', badgesRoutes);
 app.route('/api/transport', transportRoutes);
 app.route('/api/bibliotheque', bibliothequeRoutes);
 app.route('/api/emploi-du-temps', edtRoutes);
+app.route('/api/bulletins', bulletinsRoutes);
 
 // ---- ENDPOINT SETUP/MIGRATION ----
 app.get('/api/setup', async (c) => {

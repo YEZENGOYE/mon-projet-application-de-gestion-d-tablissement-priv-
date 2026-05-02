@@ -218,6 +218,7 @@ function getNavItems(role) {
     { id: 'rendez-vous', icon: 'handshake', label: 'Rendez-vous', roles: ['admin','professeur','parent'] },
     { id: 'messages', icon: 'comment-dots', label: 'Messagerie', roles: ['admin','secretariat','professeur','parent','eleve'] },
     { id: 'notifications', icon: 'bell', label: 'Notifications', roles: ['admin','secretariat','professeur','parent','eleve'] },
+    { id: 'bulletins', icon: 'file-alt', label: 'Bulletins', roles: ['admin','secretariat','professeur'], section: 'Pédagogie' },
     { id: 'statistiques', icon: 'chart-bar', label: 'Statistiques', roles: ['admin','secretariat'], section: 'Analyses' },
     { id: 'mon-espace', icon: 'home', label: 'Mon espace', roles: ['parent','eleve'] },
   ];
@@ -259,7 +260,7 @@ function navigate(page, params = {}) {
     badges: 'Badges de Mérite', 'rendez-vous': 'Rendez-vous', messages: 'Messagerie',
     notifications: 'Notifications', statistiques: 'Statistiques', profil: 'Mon Profil',
     'emploi-du-temps': 'Emploi du temps', devoirs: 'Devoirs', 'cahier-texte': 'Cahier de texte',
-    'mon-espace': 'Mon Espace'
+    'mon-espace': 'Mon Espace', bulletins: 'Bulletins Scolaires'
   };
   if ($('page-title')) $('page-title').textContent = titles[page] || page;
   if ($('page-breadcrumb')) $('page-breadcrumb').textContent = `Accueil › ${titles[page] || page}`;
@@ -279,7 +280,7 @@ function navigate(page, params = {}) {
     badges: renderBadges, 'rendez-vous': renderRendezVous, messages: renderMessages,
     notifications: renderNotifications, statistiques: renderStatistiques, profil: renderProfil,
     'emploi-du-temps': renderEmploiDuTemps, devoirs: renderDevoirs, 'cahier-texte': renderCahierTexte,
-    'mon-espace': renderMonEspace
+    'mon-espace': renderMonEspace, bulletins: renderBulletins
   };
 
   if (pages[page]) pages[page](params);
@@ -575,48 +576,112 @@ async function voirEleve(id) {
   } catch(err) { toast('Erreur: ' + err.message, 'error'); }
 }
 
-async function voirBulletin(id, nom) {
+async function voirBulletin(id, nom, trimestre = 1) {
   try {
-    const r = await API.get(`/eleves/${id}/bulletin?trimestre=1&annee_scolaire=2024-2025`);
+    const r = await API.get(`/bulletins/eleve/${id}?trimestre=${trimestre}&annee_scolaire=2024-2025`);
     const d = r.data.data;
-    const notes = d.notes||[];
-    openModal(`Bulletin — ${nom}`, `
+    const matieres = d.matieres || [];
+    const couleurMoyenne = d.moyenne_generale >= 14 ? '#1a6b3c' : d.moyenne_generale >= 10 ? '#d97706' : '#dc2626';
+    const mentionColor = {'Félicitations':'#1a6b3c','Compliments':'#2563eb','Encouragements':'#7c3aed','Passable':'#d97706','Avertissement':'#dc2626'}[d.mention] || '#6b7280';
+
+    openModal(`📋 Bulletin T${trimestre} — ${nom}`, `
     <div class="bulletin-container">
+      <!-- En-tête établissement -->
       <div class="bulletin-header">
-        <div style="font-size:1.5rem;margin-bottom:.5rem">🎓</div>
+        <div style="font-size:2rem;margin-bottom:.3rem">🎓</div>
         <div class="bulletin-school">LYCÉE PRIVÉ GABON</div>
-        <div class="bulletin-subtitle">BULLETIN DE NOTES — ${d.annee_scolaire} — TRIMESTRE ${d.trimestre}</div>
+        <div class="bulletin-subtitle">BULLETIN DE NOTES — ${sanitize(d.annee_scolaire)} — TRIMESTRE ${d.trimestre}</div>
       </div>
-      <div class="p-4 grid grid-cols-2 gap-4 text-sm border-b">
+
+      <!-- Sélecteur de trimestre -->
+      <div class="p-3 border-b flex gap-2 justify-center" style="background:#f8fafc">
+        ${[1,2,3].map(t=>`<button onclick="voirBulletin('${id}','${nom.replace(/'/g,"\\'")}',${t})" 
+          class="btn btn-sm ${t===trimestre?'btn-primary':'btn-outline'}"
+          style="${t===trimestre?'background:#1a6b3c;color:white':''}">
+          Trimestre ${t}
+        </button>`).join('')}
+      </div>
+
+      <!-- Infos élève -->
+      <div class="p-4 grid grid-cols-2 gap-3 text-sm border-b" style="background:#f0fdf4">
         <div><span class="text-gray-500">Élève :</span> <strong>${sanitize(d.eleve?.prenom||'')} ${sanitize(d.eleve?.nom||'')}</strong></div>
-        <div><span class="text-gray-500">Matricule :</span> <strong>${sanitize(d.eleve?.matricule||'')}</strong></div>
-        <div><span class="text-gray-500">Classe :</span> <strong>${sanitize(d.eleve?.nom_classe||'')}</strong></div>
+        <div><span class="text-gray-500">Matricule :</span> <span class="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded">${sanitize(d.eleve?.matricule||'')}</span></div>
+        <div><span class="text-gray-500">Classe :</span> <strong>${sanitize(d.eleve?.classe||'')}</strong></div>
         <div><span class="text-gray-500">Filière :</span> <strong>${sanitize(d.eleve?.filiere||'-')}</strong></div>
+        <div><span class="text-gray-500">Prof. principal :</span> ${sanitize(d.professeur_principal||'-')}</div>
+        <div><span class="text-gray-500">Année :</span> ${sanitize(d.annee_scolaire)}</div>
       </div>
+
+      <!-- Tableau des matières -->
       <div class="table-container">
-        <table><thead><tr><th>Matière</th><th>Coef.</th><th>Moyenne</th><th>Min</th><th>Max</th><th>Prof.</th></tr></thead>
-        <tbody>${notes.map(n=>`<tr>
-          <td class="font-medium">${sanitize(n.nom_matiere)}</td>
-          <td class="text-center">${n.coef_matiere}</td>
-          <td class="text-center font-bold">${n.moyenne!=null?Number(n.moyenne).toFixed(2):'-'}</td>
-          <td class="text-center text-red-500 text-sm">${n.note_min!=null?Number(n.note_min).toFixed(1):'-'}</td>
-          <td class="text-center text-green-600 text-sm">${n.note_max!=null?Number(n.note_max).toFixed(1):'-'}</td>
-          <td class="text-xs text-gray-500">${sanitize(n.prof_prenom||'')} ${sanitize(n.prof_nom||'')}</td>
-        </tr>`).join('')||'<tr><td colspan="6" class="text-center py-4 text-gray-400">Aucune note saisie</td></tr>'}
-        </tbody></table>
+        <table>
+          <thead>
+            <tr>
+              <th>Matière</th>
+              <th class="text-center">Coef.</th>
+              <th class="text-center">Notes</th>
+              <th class="text-center">Moyenne</th>
+              <th>Appréciation</th>
+              <th>Professeur</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${matieres.map(m => {
+              const moy = m.moyenne;
+              const couleur = moy === null ? '#6b7280' : moy >= 14 ? '#1a6b3c' : moy >= 10 ? '#d97706' : '#dc2626';
+              const notesStr = (m.notes||[]).map(n => `${n.note}(${n.type.charAt(0).toUpperCase()})`).join(', ') || '-';
+              return `<tr>
+                <td class="font-medium">${sanitize(m.nom_matiere)}</td>
+                <td class="text-center"><span class="badge badge-blue">${m.coefficient}</span></td>
+                <td class="text-xs text-gray-500 max-w-xs" style="white-space:normal">${notesStr}</td>
+                <td class="text-center"><strong style="color:${couleur};font-size:1rem">${moy !== null ? Number(moy).toFixed(2) : '-'}/20</strong></td>
+                <td class="text-sm" style="color:${couleur}">${sanitize(m.appreciation||'')}</td>
+                <td class="text-xs text-gray-400">${sanitize(m.professeur||'-')}</td>
+              </tr>`;
+            }).join('') || '<tr><td colspan="6" class="text-center py-6 text-gray-400"><i class="fas fa-info-circle mr-2"></i>Aucune note saisie pour ce trimestre</td></tr>'}
+          </tbody>
+        </table>
       </div>
-      <div class="p-4 flex items-center justify-between" style="background:#f8fafc">
-        <div>
-          <div class="moyenne-generale">${d.moyenne_generale||'--'}/20</div>
-          <div class="text-sm text-gray-500">Moyenne générale</div>
+
+      <!-- Pied de bulletin -->
+      <div class="p-4 border-t" style="background:#f8fafc">
+        <div class="grid grid-cols-3 gap-4 text-center mb-3">
+          <div class="p-3 rounded-xl" style="background:white;border:2px solid ${couleurMoyenne}">
+            <div style="font-size:1.8rem;font-weight:800;color:${couleurMoyenne}">${Number(d.moyenne_generale||0).toFixed(2)}/20</div>
+            <div class="text-xs text-gray-500 mt-1">Moyenne générale</div>
+          </div>
+          <div class="p-3 rounded-xl" style="background:white;border:2px solid ${mentionColor}">
+            <div style="font-size:1rem;font-weight:700;color:${mentionColor}">${sanitize(d.mention||'')}</div>
+            <div class="text-xs text-gray-500 mt-1">Mention</div>
+          </div>
+          <div class="p-3 rounded-xl" style="background:white;border:1px solid #e5e7eb">
+            <div class="text-sm font-bold text-red-600">${d.absences?.injustifiees||0} abs.</div>
+            <div class="text-xs text-yellow-600">${d.absences?.retards||0} retards</div>
+            <div class="text-xs text-gray-500 mt-1">Assiduité</div>
+          </div>
         </div>
-        <div class="text-right">
-          <div class="font-bold text-lg">${d.mention||''}</div>
-          <div class="text-sm text-gray-500">Absences: ${d.absences?.absences||0} | Retards: ${d.absences?.retards||0}</div>
+        <div class="p-3 rounded-lg text-sm italic text-gray-600" style="background:white;border-left:4px solid ${couleurMoyenne}">
+          <strong>Appréciation générale :</strong> ${sanitize(d.appreciation||'')}
         </div>
+        ${canDo('admin','secretariat') ? `
+        <div class="mt-3 flex gap-2 justify-end">
+          <button class="btn btn-sm btn-primary" onclick="genererBulletin('${id}','${nom.replace(/'/g,"\\'")}',${trimestre})">
+            <i class="fas fa-save"></i> Enregistrer le bulletin
+          </button>
+        </div>` : ''}
       </div>
-    </div>`, null, 'modal-lg');
-  } catch(err) { toast('Erreur: ' + err.message, 'error'); }
+    </div>`, null, 'modal-xl');
+  } catch(err) { toast('Erreur chargement bulletin: ' + err.message, 'error'); }
+}
+
+async function genererBulletin(eleveId, nom, trimestre) {
+  try {
+    const r = await API.post(`/bulletins/generer/${eleveId}`, { trimestre, annee_scolaire: '2024-2025' });
+    if (r.data.success) {
+      toast(`✅ ${r.data.message}`, 'success');
+      closeModal();
+    }
+  } catch(err) { toast(err.response?.data?.error || err.message, 'error'); }
 }
 
 function openEleveForm(id = null) {
@@ -2455,4 +2520,231 @@ function canDo(...roles) { return roles.includes(currentUser?.role); }
 
 function errHtml(e) {
   return `<div class="empty-state"><i class="fas fa-exclamation-triangle text-red-500" style="font-size:2rem"></i><p class="text-red-500 font-medium mt-2">Erreur de chargement</p><p class="text-gray-400 text-sm">${sanitize(e.message)}</p><button class="btn btn-outline btn-sm mt-3" onclick="navigate(currentPage)"><i class="fas fa-sync"></i> Réessayer</button></div>`;
+}
+
+// ==============================================================
+// BULLETINS SCOLAIRES — Génération automatique
+// ==============================================================
+async function renderBulletins() {
+  const pc = $('page-content');
+  try {
+    const [classesR, elevesR] = await Promise.all([
+      API.get('/classes'),
+      API.get('/eleves?per_page=200')
+    ]);
+    const classes = classesR.data.data || [];
+    const eleves = elevesR.data.data || [];
+
+    pc.innerHTML = `
+    <div class="animate-fade">
+      <!-- Bannière -->
+      <div class="card mb-4" style="background:linear-gradient(135deg,#1a6b3c,#0f4a2a);color:white">
+        <div class="card-body" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem">
+          <div>
+            <h2 style="font-size:1.2rem;font-weight:800"><i class="fas fa-file-alt mr-2"></i>Bulletins Scolaires</h2>
+            <p style="opacity:.8;font-size:.85rem">Génération automatique des bulletins trimestriels avec calcul des moyennes et rangs</p>
+          </div>
+          <div class="flex gap-2 flex-wrap">
+            ${canDo('admin','secretariat') ? `
+            <button class="btn btn-secondary btn-sm" onclick="genererTousLesBulletins()">
+              <i class="fas fa-magic"></i> Générer toute une classe
+            </button>` : ''}
+          </div>
+        </div>
+      </div>
+
+      <!-- Filtres -->
+      <div class="card mb-4">
+        <div class="card-body">
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div>
+              <label class="form-label">Classe</label>
+              <select id="bull-classe" class="form-select" onchange="filtrerBulletins()">
+                <option value="">Toutes les classes</option>
+                ${classes.map(c=>`<option value="${c.id}">${sanitize(c.nom_classe)}</option>`).join('')}
+              </select>
+            </div>
+            <div>
+              <label class="form-label">Trimestre</label>
+              <select id="bull-trimestre" class="form-select" onchange="filtrerBulletins()">
+                <option value="1">Trimestre 1</option>
+                <option value="2">Trimestre 2</option>
+                <option value="3">Trimestre 3</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label">Élève</label>
+              <input id="bull-search" class="form-input" placeholder="Rechercher..." oninput="filtrerBulletins()">
+            </div>
+            <div class="flex items-end">
+              <button class="btn btn-primary w-full" onclick="filtrerBulletins()">
+                <i class="fas fa-search"></i> Rechercher
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Liste élèves pour bulletins -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title"><i class="fas fa-list mr-2 text-green-700"></i>Élèves — <span id="bull-count">${eleves.length}</span> élèves</span>
+          ${canDo('admin','secretariat') ? `
+          <button class="btn btn-sm btn-primary" onclick="genererTousLesBulletins()">
+            <i class="fas fa-bolt"></i> Générer pour une classe
+          </button>` : ''}
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Élève</th>
+                <th>Matricule</th>
+                <th>Classe</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="bull-tbody">
+              ${renderBulletinRows(eleves)}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Stats classe (si classe sélectionnée) -->
+      <div id="bull-stats-section" style="display:none" class="mt-4"></div>
+    </div>`;
+
+    window._bullEleves = eleves;
+    window._bullClasses = classes;
+  } catch(e) { pc.innerHTML = errHtml(e); }
+}
+
+function renderBulletinRows(eleves) {
+  if (!eleves.length) return '<tr><td colspan="4" class="text-center py-8 text-gray-400">Aucun élève trouvé</td></tr>';
+  return eleves.map(e => `
+  <tr>
+    <td>
+      <div class="flex items-center gap-2">
+        <div class="avatar avatar-sm" style="background:${avatarColor(e.nom)}">${avatarLetters(e.nom, e.prenom)}</div>
+        <div class="font-semibold">${sanitize(e.prenom)} ${sanitize(e.nom)}</div>
+      </div>
+    </td>
+    <td><span class="font-mono text-xs bg-gray-100 px-2 py-1 rounded">${sanitize(e.matricule)}</span></td>
+    <td>${e.nom_classe ? `<span class="badge badge-blue">${sanitize(e.nom_classe)}</span>` : '<span class="text-gray-400 text-xs">-</span>'}</td>
+    <td>
+      <div class="flex gap-1 flex-wrap">
+        <button class="btn btn-sm btn-outline btn-icon" title="Voir bulletin T1" onclick="voirBulletin('${e.id}','${sanitize(e.prenom)} ${sanitize(e.nom)}',parseInt($('bull-trimestre')?.value||1))">
+          <i class="fas fa-eye"></i> Voir
+        </button>
+        ${canDo('admin','secretariat','professeur') ? `
+        <button class="btn btn-sm btn-primary btn-icon" title="Générer et enregistrer"
+          onclick="genererEtEnregistrer('${e.id}','${sanitize(e.prenom)} ${sanitize(e.nom)}')">
+          <i class="fas fa-save"></i> Générer
+        </button>` : ''}
+      </div>
+    </td>
+  </tr>`).join('');
+}
+
+function filtrerBulletins() {
+  const q = ($('bull-search')?.value || '').toLowerCase();
+  const cl = $('bull-classe')?.value || '';
+  const filtered = (window._bullEleves || []).filter(e =>
+    (!q || `${e.nom} ${e.prenom} ${e.matricule}`.toLowerCase().includes(q)) &&
+    (!cl || e.classe_id === cl)
+  );
+  const tb = $('bull-tbody');
+  if (tb) tb.innerHTML = renderBulletinRows(filtered);
+  const cnt = $('bull-count');
+  if (cnt) cnt.textContent = filtered.length;
+
+  // Si une classe est sélectionnée, afficher les stats
+  if (cl) chargerStatsBulletins(cl);
+  else { const s = $('bull-stats-section'); if (s) s.style.display = 'none'; }
+}
+
+async function chargerStatsBulletins(classeId) {
+  const trimestre = $('bull-trimestre')?.value || '1';
+  const section = $('bull-stats-section');
+  if (!section) return;
+  try {
+    const r = await API.get(`/bulletins/stats/${classeId}?trimestre=${trimestre}&annee_scolaire=2024-2025`);
+    const s = r.data.data;
+    if (!s) { section.style.display = 'none'; return; }
+
+    section.style.display = 'block';
+    section.innerHTML = `
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title"><i class="fas fa-chart-bar mr-2 text-purple-600"></i>Statistiques classe — Trimestre ${trimestre}</span>
+      </div>
+      <div class="card-body">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+          <div class="stat-card">
+            <div class="stat-icon" style="background:#e8f5ee"><span style="font-size:1.2rem">👥</span></div>
+            <div><div class="stat-value">${s.effectif}</div><div class="stat-label">Effectif</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon" style="background:#dbeafe"><span style="font-size:1.2rem">📊</span></div>
+            <div><div class="stat-value">${s.moyenne_classe}/20</div><div class="stat-label">Moyenne classe</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon" style="background:#d1fae5"><span style="font-size:1.2rem">🏆</span></div>
+            <div><div class="stat-value">${s.taux_reussite}%</div><div class="stat-label">Taux de réussite</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon" style="background:#fef3c7"><span style="font-size:1.2rem">📈</span></div>
+            <div><div class="stat-value">${s.moyenne_max}/20</div><div class="stat-label">Meilleure moy.</div></div>
+          </div>
+        </div>
+        <div>
+          <p class="font-semibold text-sm text-gray-600 mb-2">Répartition des mentions :</p>
+          <div class="flex flex-wrap gap-2">
+            ${Object.entries(s.repartition_mentions).map(([m,nb])=>`
+              <div class="px-3 py-2 rounded-lg text-sm font-medium" style="background:#f1f5f9">
+                ${m} : <span class="font-bold text-green-700">${nb}</span>
+              </div>`).join('')}
+          </div>
+        </div>
+      </div>
+    </div>`;
+  } catch(e) { section.style.display = 'none'; }
+}
+
+async function genererEtEnregistrer(eleveId, nom) {
+  const trimestre = parseInt($('bull-trimestre')?.value || '1');
+  try {
+    const r = await API.post(`/bulletins/generer/${eleveId}`, { trimestre, annee_scolaire: '2024-2025' });
+    if (r.data.success) {
+      toast(`✅ ${r.data.message}`, 'success');
+    }
+  } catch(err) { toast(err.response?.data?.error || err.message, 'error'); }
+}
+
+async function genererTousLesBulletins() {
+  const classeId = $('bull-classe')?.value;
+  const trimestre = parseInt($('bull-trimestre')?.value || '1');
+  if (!classeId) {
+    toast('Veuillez sélectionner une classe d\'abord.', 'warning');
+    return;
+  }
+  const classe = (window._bullClasses || []).find(c => c.id === classeId);
+  openModal('Générer les bulletins', `
+    <div class="text-center p-4">
+      <div style="font-size:3rem">📋</div>
+      <p class="text-gray-700 mt-3">Générer les bulletins du <strong>Trimestre ${trimestre}</strong> pour toute la classe <strong>${sanitize(classe?.nom_classe || '')}</strong> ?</p>
+      <p class="text-gray-400 text-sm mt-2">Cette opération calculera les moyennes, attribuera les rangs et enverra des notifications aux parents.</p>
+    </div>`,
+    async () => {
+      try {
+        const r = await API.post(`/bulletins/generer-classe/${classeId}`, { trimestre, annee_scolaire: '2024-2025' });
+        if (r.data.success) {
+          toast(`✅ ${r.data.message}`, 'success');
+          closeModal();
+          chargerStatsBulletins(classeId);
+        }
+      } catch(err) { toast(err.response?.data?.error || err.message, 'error'); }
+    }
+  );
 }
