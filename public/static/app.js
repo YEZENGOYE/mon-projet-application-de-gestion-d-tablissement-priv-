@@ -209,8 +209,9 @@ function getNavItems(role) {
     { id: 'cahier-texte', icon: 'pen-fancy', label: 'Cahier de texte', roles: ['admin','professeur'] },
     { id: 'factures', icon: 'file-invoice-dollar', label: 'Facturation', roles: ['admin','secretariat'], section: 'Finance' },
     { id: 'paiements', icon: 'money-bill-wave', label: 'Paiements', roles: ['admin','secretariat'] },
+    { id: 'finances-profs', icon: 'chalkboard-teacher', label: 'Finances Profs', roles: ['admin','secretariat','professeur'] },
     { id: 'cartes', icon: 'id-card', label: 'Cartes scolaires', roles: ['admin','secretariat'], section: 'Administration' },
-    { id: 'users', icon: 'users-cog', label: 'Utilisateurs', roles: ['admin'] },
+    { id: 'users', icon: 'users-cog', label: 'Utilisateurs', roles: ['admin','secretariat'] },
     { id: 'parents', icon: 'users', label: 'Parents', roles: ['admin','secretariat'] },
     { id: 'transport', icon: 'bus', label: 'Transport', roles: ['admin','secretariat'] },
     { id: 'bibliotheque', icon: 'book', label: 'Bibliothèque', roles: ['admin','professeur','eleve','parent'], section: 'Services' },
@@ -260,7 +261,7 @@ function navigate(page, params = {}) {
     badges: 'Badges de Mérite', 'rendez-vous': 'Rendez-vous', messages: 'Messagerie',
     notifications: 'Notifications', statistiques: 'Statistiques', profil: 'Mon Profil',
     'emploi-du-temps': 'Emploi du temps', devoirs: 'Devoirs', 'cahier-texte': 'Cahier de texte',
-    'mon-espace': 'Mon Espace', bulletins: 'Bulletins Scolaires'
+    'mon-espace': 'Mon Espace', bulletins: 'Bulletins Scolaires', 'finances-profs': 'Finances Professeurs'
   };
   if ($('page-title')) $('page-title').textContent = titles[page] || page;
   if ($('page-breadcrumb')) $('page-breadcrumb').textContent = `Accueil › ${titles[page] || page}`;
@@ -275,7 +276,7 @@ function navigate(page, params = {}) {
   const pages = {
     dashboard: renderDashboard, eleves: renderEleves, classes: renderClasses,
     notes: renderNotes, absences: renderAbsences, factures: renderFactures,
-    paiements: renderPaiements, cartes: renderCartes, users: renderUsers,
+    paiements: renderPaiements, 'finances-profs': renderFinancesProfs, cartes: renderCartes, users: renderUsers,
     parents: renderParents, transport: renderTransport, bibliotheque: renderBibliotheque,
     badges: renderBadges, 'rendez-vous': renderRendezVous, messages: renderMessages,
     notifications: renderNotifications, statistiques: renderStatistiques, profil: renderProfil,
@@ -1454,7 +1455,7 @@ function filterUsers(role) {
   const tb = $('users-tbody'); if(tb) tb.innerHTML = renderUserRows(filtered);
 }
 
-function openUserForm(id = null) {
+function openUserForm(id = null, defaultRole = 'admin') {
   openModal(id ? 'Modifier utilisateur' : 'Nouvel utilisateur', `
   <form id="user-form">
     <div class="form-grid">
@@ -1462,26 +1463,79 @@ function openUserForm(id = null) {
       <div class="form-group"><label class="form-label">Nom <span class="required">*</span></label><input name="nom" class="form-input" required></div>
     </div>
     <div class="form-group"><label class="form-label">Email <span class="required">*</span></label><input name="email" type="email" class="form-input" required></div>
-    ${!id ? `<div class="form-group"><label class="form-label">Mot de passe <span class="required">*</span></label><input name="mot_de_passe" type="password" class="form-input" required placeholder="Minimum 6 caractères"></div>` : ''}
+    ${!id ? `<div class="form-group"><label class="form-label">Mot de passe temporaire <span class="required">*</span></label><input name="mot_de_passe" type="password" class="form-input" required value="Prof@2024" placeholder="Minimum 6 caractères"></div>` : ''}
     <div class="form-grid">
       <div class="form-group"><label class="form-label">Rôle <span class="required">*</span></label>
-        <select name="role" class="form-select" required>
-          <option value="admin">Administrateur</option><option value="secretariat">Secrétariat</option>
-          <option value="professeur">Professeur</option><option value="parent">Parent</option><option value="eleve">Élève</option>
+        <select name="role" id="user-role-select" class="form-select" required onchange="toggleProfFields()">
+          <option value="admin" ${defaultRole==='admin'?'selected':''}>Administrateur</option>
+          <option value="secretariat" ${defaultRole==='secretariat'?'selected':''}>Secrétariat</option>
+          <option value="professeur" ${defaultRole==='professeur'?'selected':''}>Professeur</option>
+          <option value="parent" ${defaultRole==='parent'?'selected':''}>Parent</option>
+          <option value="eleve" ${defaultRole==='eleve'?'selected':''}>Élève</option>
         </select>
       </div>
       <div class="form-group"><label class="form-label">Téléphone</label><input name="telephone" class="form-input" placeholder="+241 XX XX XX XX"></div>
     </div>
+    <div id="prof-extra-fields" style="display:${defaultRole==='professeur'?'block':'none'}">
+      <hr class="my-3"><p class="text-sm font-semibold text-green-700 mb-2"><i class="fas fa-chalkboard-teacher mr-1"></i>Informations contrat (optionnel)</p>
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">Type contrat</label>
+          <select name="type_contrat" class="form-select">
+            <option value="CDI">CDI</option><option value="CDD">CDD</option>
+            <option value="Vacataire">Vacataire</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Salaire de base (FCFA)</label><input name="salaire_base" type="number" class="form-input" placeholder="ex: 400000"></div>
+      </div>
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">Taux horaire (FCFA/h)</label><input name="taux_horaire" type="number" class="form-input" placeholder="ex: 4500"></div>
+        <div class="form-group"><label class="form-label">Heures / semaine</label><input name="nb_heures_semaine" type="number" class="form-input" placeholder="ex: 18"></div>
+      </div>
+    </div>
   </form>`,
   async () => {
-    const data = Object.fromEntries(new FormData($('user-form')));
+    const form = $('user-form');
+    const data = Object.fromEntries(new FormData(form));
     try {
-      if (id) await API.put(`/users/${id}`, data);
-      else await API.post('/users', data);
-      toast(id ? 'Utilisateur mis à jour.' : 'Utilisateur créé !', 'success'); closeModal(); renderUsers();
+      let result;
+      if (id) {
+        result = await API.put(`/users/${id}`, data);
+      } else {
+        result = await API.post('/users', data);
+        // Si professeur avec contrat, créer automatiquement le contrat
+        if (data.role === 'professeur' && (data.salaire_base || data.taux_horaire)) {
+          const userId = result.data?.data?.id;
+          if (userId) {
+            await API.post('/finances-profs/contrats', {
+              professeur_id: userId,
+              type_contrat: data.type_contrat || 'CDI',
+              salaire_base: parseFloat(data.salaire_base) || 0,
+              taux_horaire: parseFloat(data.taux_horaire) || 0,
+              nb_heures_semaine: parseFloat(data.nb_heures_semaine) || 0,
+              date_debut: new Date().toISOString().split('T')[0]
+            }).catch(() => {});
+          }
+        }
+      }
+      toast(id ? 'Utilisateur mis à jour.' : 'Utilisateur créé !', 'success');
+      closeModal(); renderUsers();
     } catch(err) { toast(err.response?.data?.error || err.message, 'error'); }
   });
+  // Afficher/masquer champs prof après ouverture modale
+  setTimeout(() => {
+    const sel = $('user-role-select');
+    if (sel) sel.dispatchEvent(new Event('change'));
+  }, 100);
 }
+
+function toggleProfFields() {
+  const role = $('user-role-select')?.value;
+  const extra = $('prof-extra-fields');
+  if (extra) extra.style.display = role === 'professeur' ? 'block' : 'none';
+}
+
+// Raccourci: créer professeur directement
+function openProfesseurForm() { openUserForm(null, 'professeur'); }
 
 async function toggleUser(id, actif) {
   try {
@@ -1569,16 +1623,21 @@ function openParentForm() {
     <div class="form-group"><label class="form-label">Email <span class="required">*</span></label><input name="email" type="email" class="form-input" required></div>
     <div class="form-grid">
       <div class="form-group"><label class="form-label">Téléphone</label><input name="telephone" class="form-input" placeholder="+241 XX XX XX XX"></div>
-      <div class="form-group"><label class="form-label">Profession</label><input name="profession" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Profession</label><input name="profession" class="form-input" placeholder="ex: Médecin, Commerçant..."></div>
     </div>
-    <div class="form-group"><label class="form-label">Adresse</label><input name="adresse" class="form-input"></div>
-    <div class="form-group"><label class="form-label">Mot de passe temporaire</label><input name="mot_de_passe" type="password" class="form-input" value="Parent@2024"></div>
+    <div class="form-group"><label class="form-label">Adresse complète</label><input name="adresse" class="form-input" placeholder="Quartier, ville..."></div>
+    <div class="form-group">
+      <label class="form-label">Mot de passe temporaire</label>
+      <input name="mot_de_passe" type="password" class="form-input" value="Parent@2024">
+      <p class="text-xs text-gray-400 mt-1"><i class="fas fa-info-circle"></i> Le parent devra changer ce mot de passe lors de sa première connexion.</p>
+    </div>
   </form>`,
   async () => {
     const data = Object.fromEntries(new FormData($('parent-form')));
     try {
       await API.post('/parents', data);
-      toast('Parent créé avec succès !', 'success'); closeModal(); renderParents();
+      toast('Parent créé avec succès ! Identifiants envoyés.', 'success');
+      closeModal(); renderParents();
     } catch(err) { toast(err.response?.data?.error || err.message, 'error'); }
   });
 }
@@ -2747,4 +2806,632 @@ async function genererTousLesBulletins() {
       } catch(err) { toast(err.response?.data?.error || err.message, 'error'); }
     }
   );
+}
+
+// ==============================================================
+// FINANCES PROFESSEURS
+// ==============================================================
+async function renderFinancesProfs() {
+  const pc = $('page-content');
+  const role = currentUser.role;
+  try {
+    // Tableau de bord finances profs (admin/secretariat) ou recap perso (professeur)
+    if (role === 'professeur') {
+      await renderFinancesProfsPerso(pc);
+      return;
+    }
+    const [tbRes, profsRes] = await Promise.all([
+      API.get('/finances-profs/tableau-bord'),
+      API.get('/users/professeurs')
+    ]);
+    const tb = tbRes.data.data || {};
+    const profs = profsRes.data.data || [];
+
+    pc.innerHTML = `
+    <div class="animate-fade">
+      <!-- Résumé global -->
+      <div class="grid grid-cols-2 gap-4 mb-4" style="grid-template-columns:repeat(4,1fr)">
+        <div class="card text-center p-4">
+          <div class="text-3xl font-bold text-green-700">${tb.nb_professeurs||0}</div>
+          <div class="text-sm text-gray-500 mt-1"><i class="fas fa-chalkboard-teacher mr-1"></i>Professeurs</div>
+        </div>
+        <div class="card text-center p-4">
+          <div class="text-3xl font-bold text-blue-700">${(tb.total_heures||0).toFixed(1)}</div>
+          <div class="text-sm text-gray-500 mt-1"><i class="fas fa-clock mr-1"></i>Heures totales</div>
+        </div>
+        <div class="card text-center p-4">
+          <div class="text-2xl font-bold text-yellow-700">${fmtMoney(tb.total_a_verser||0)}</div>
+          <div class="text-sm text-gray-500 mt-1"><i class="fas fa-file-invoice mr-1"></i>Total à verser</div>
+        </div>
+        <div class="card text-center p-4">
+          <div class="text-2xl font-bold text-purple-700">${fmtMoney(tb.total_verse||0)}</div>
+          <div class="text-sm text-gray-500 mt-1"><i class="fas fa-check-circle mr-1"></i>Total versé</div>
+        </div>
+      </div>
+
+      <!-- Onglets -->
+      <div class="tabs mb-4">
+        <div class="tab active" id="tab-contrats" onclick="switchFPTab('contrats')">📋 Contrats</div>
+        <div class="tab" id="tab-heures" onclick="switchFPTab('heures')">⏱ Heures de travail</div>
+        <div class="tab" id="tab-fiches" onclick="switchFPTab('fiches')">💰 Fiches de paie</div>
+      </div>
+
+      <!-- CONTRATS -->
+      <div id="fp-contrats">
+        <div class="flex justify-between items-center mb-3 flex-wrap gap-2">
+          <h3 class="font-bold text-gray-700"><i class="fas fa-file-contract mr-2 text-green-600"></i>Contrats actifs (${profs.length})</h3>
+          <button class="btn btn-primary btn-sm" onclick="openContratForm()"><i class="fas fa-plus"></i> Nouveau contrat</button>
+        </div>
+        <div class="card">
+          <div class="table-container">
+            <table><thead><tr><th>Professeur</th><th>Type</th><th>Salaire de base</th><th>Taux/heure</th><th>Heures/sem</th><th>Actions</th></tr></thead>
+            <tbody>${renderContratRows(profs)}</tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- HEURES -->
+      <div id="fp-heures" style="display:none">
+        <div class="flex justify-between items-center mb-3 flex-wrap gap-2">
+          <h3 class="font-bold text-gray-700"><i class="fas fa-clock mr-2 text-blue-600"></i>Heures de travail</h3>
+          <div class="flex gap-2 flex-wrap">
+            <select id="fp-heures-prof" class="form-select form-select-sm" onchange="chargerHeures()">
+              <option value="">Tous les professeurs</option>
+              ${profs.map(p=>`<option value="${p.id}">${sanitize(p.prenom)} ${sanitize(p.nom)}</option>`).join('')}
+            </select>
+            <select id="fp-heures-mois" class="form-select form-select-sm" onchange="chargerHeures()">
+              ${['','01','02','03','04','05','06','07','08','09','10','11','12'].map((m,i)=>
+                `<option value="${m}" ${i===0?'selected':''}>${i===0?'Tous mois':['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'][i-1]}</option>`
+              ).join('')}
+            </select>
+            <button class="btn btn-sm btn-primary" onclick="openSaisirHeures()"><i class="fas fa-plus"></i> Saisir heures</button>
+          </div>
+        </div>
+        <div id="fp-heures-content"><div class="flex justify-center p-8"><span class="loading-spinner"></span></div></div>
+      </div>
+
+      <!-- FICHES DE PAIE -->
+      <div id="fp-fiches" style="display:none">
+        <div class="flex justify-between items-center mb-3 flex-wrap gap-2">
+          <h3 class="font-bold text-gray-700"><i class="fas fa-money-check-alt mr-2 text-purple-600"></i>Fiches de paie</h3>
+          <div class="flex gap-2 flex-wrap">
+            <select id="fp-fiches-prof" class="form-select form-select-sm">
+              <option value="">Tous les professeurs</option>
+              ${profs.map(p=>`<option value="${p.id}">${sanitize(p.prenom)} ${sanitize(p.nom)}</option>`).join('')}
+            </select>
+            <select id="fp-fiches-mois" class="form-select form-select-sm">
+              ${['','1','2','3','4','5','6','7','8','9','10','11','12'].map((m,i)=>
+                `<option value="${m}" ${i===0?'selected':''}>${i===0?'Tous mois':['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'][i-1]}</option>`
+              ).join('')}
+            </select>
+            <button class="btn btn-sm btn-outline" onclick="chargerFiches()"><i class="fas fa-search"></i> Filtrer</button>
+            <button class="btn btn-sm btn-primary" onclick="openGenererFiche()"><i class="fas fa-file-invoice"></i> Générer fiche</button>
+            <button class="btn btn-sm" style="background:#7c3aed;color:white" onclick="openGenererTous()"><i class="fas fa-layer-group"></i> Générer tous</button>
+          </div>
+        </div>
+        <div id="fp-fiches-content"><div class="flex justify-center p-8"><span class="loading-spinner"></span></div></div>
+      </div>
+
+      <!-- Top profs -->
+      ${tb.top_profs?.length ? `
+      <div class="card mt-4">
+        <div class="card-header"><span class="card-title"><i class="fas fa-trophy mr-2 text-yellow-500"></i>Top professeurs — heures effectuées</span></div>
+        <div class="table-container">
+          <table><thead><tr><th>#</th><th>Professeur</th><th>Total heures</th><th>Heures validées</th><th>Progression</th></tr></thead>
+          <tbody>${(tb.top_profs||[]).map((p,i)=>`<tr>
+            <td class="font-bold text-gray-400">${i+1}</td>
+            <td><div class="flex items-center gap-2"><div class="avatar avatar-sm" style="background:${avatarColor(p.nom)}">${avatarLetters(p.nom,p.prenom)}</div><span>${sanitize(p.prenom)} ${sanitize(p.nom)}</span></div></td>
+            <td class="font-bold">${(p.total_heures||0).toFixed(1)} h</td>
+            <td>${(p.heures_validees||0).toFixed(1)} h</td>
+            <td><div class="progress-bar" style="width:150px"><div class="progress-fill" style="width:${p.total_heures>0?Math.round(p.heures_validees/p.total_heures*100):0}%"></div></div></td>
+          </tr>`).join('')}</tbody></table>
+        </div>
+      </div>` : ''}
+    </div>`;
+
+    window._fpProfs = profs;
+    // Charger heures et fiches automatiquement
+    chargerHeures();
+    chargerFiches();
+  } catch(e) { pc.innerHTML = errHtml(e); }
+}
+
+async function renderFinancesProfsPerso(pc) {
+  try {
+    const r = await API.get(`/finances-profs/recap/${currentUser.id}`);
+    const d = r.data.data;
+    const prof = d.professeur;
+    const contrat = d.contrat;
+    const MOIS_FR = ['','Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+
+    pc.innerHTML = `
+    <div class="animate-fade">
+      <div class="grid gap-4" style="grid-template-columns:1fr 2fr">
+        <!-- Infos contrat -->
+        <div class="card p-4">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="avatar" style="background:${avatarColor(prof.nom)};width:56px;height:56px;font-size:1.3rem">${avatarLetters(prof.nom,prof.prenom)}</div>
+            <div>
+              <div class="font-bold text-lg">${sanitize(prof.prenom)} ${sanitize(prof.nom)}</div>
+              <div class="text-sm text-gray-400">Professeur</div>
+            </div>
+          </div>
+          ${contrat ? `
+          <div class="p-3 bg-green-50 rounded-lg border border-green-200 mb-3">
+            <div class="font-semibold text-green-800 mb-2"><i class="fas fa-file-contract mr-1"></i>Mon contrat</div>
+            <div class="text-sm space-y-1">
+              <div class="flex justify-between"><span class="text-gray-500">Type</span><span class="font-medium">${sanitize(contrat.type_contrat)}</span></div>
+              <div class="flex justify-between"><span class="text-gray-500">Salaire base</span><span class="font-bold text-green-700">${fmtMoney(contrat.salaire_base)}</span></div>
+              <div class="flex justify-between"><span class="text-gray-500">Taux horaire</span><span class="font-medium">${fmtMoney(contrat.taux_horaire)}/h</span></div>
+              <div class="flex justify-between"><span class="text-gray-500">Heures/semaine</span><span class="font-medium">${contrat.nb_heures_semaine} h</span></div>
+            </div>
+          </div>` : '<div class="text-gray-400 text-sm text-center p-3"><i class="fas fa-info-circle"></i> Aucun contrat actif</div>'}
+          <div class="grid grid-cols-2 gap-2 text-center">
+            <div class="p-2 bg-blue-50 rounded-lg"><div class="font-bold text-blue-700">${prof.nb_matieres||0}</div><div class="text-xs text-gray-400">Matières</div></div>
+            <div class="p-2 bg-purple-50 rounded-lg"><div class="font-bold text-purple-700">${prof.nb_classes||0}</div><div class="text-xs text-gray-400">Classes</div></div>
+          </div>
+        </div>
+
+        <!-- Heures et fiches -->
+        <div>
+          <div class="card mb-4">
+            <div class="card-header"><span class="card-title"><i class="fas fa-clock mr-2 text-blue-600"></i>Mes heures (6 derniers mois)</span></div>
+            <div class="table-container">
+              <table><thead><tr><th>Mois</th><th>Séances</th><th>Total heures</th><th>Validées</th><th>En attente</th></tr></thead>
+              <tbody>${(d.heures_par_mois||[]).length ? (d.heures_par_mois||[]).map(m=>`<tr>
+                <td class="font-medium">${sanitize(m.mois_annee)}</td>
+                <td>${m.nb_seances}</td>
+                <td class="font-bold">${(m.total||0).toFixed(1)} h</td>
+                <td class="text-green-600">${(m.validees||0).toFixed(1)} h</td>
+                <td class="text-yellow-600">${((m.total||0)-(m.validees||0)).toFixed(1)} h</td>
+              </tr>`).join('') : '<tr><td colspan="5" class="text-center text-gray-400 py-4">Aucune heure enregistrée</td></tr>'}</tbody>
+            </table></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><span class="card-title"><i class="fas fa-money-check-alt mr-2 text-purple-600"></i>Mes fiches de paie</span></div>
+            <div class="table-container">
+              <table><thead><tr><th>Période</th><th>Salaire base</th><th>Heures</th><th>Net à payer</th><th>Statut</th></tr></thead>
+              <tbody>${(d.fiches_paie||[]).length ? (d.fiches_paie||[]).map(f=>`<tr>
+                <td class="font-medium">${MOIS_FR[f.mois]} ${f.annee}</td>
+                <td>${fmtMoney(f.salaire_base)}</td>
+                <td class="text-sm text-gray-500">${(f.nb_heures_effectuees||0).toFixed(1)} h × ${fmtMoney(f.montant_heures>0&&f.nb_heures_effectuees>0?f.montant_heures/f.nb_heures_effectuees:0)}</td>
+                <td class="font-bold text-green-700">${fmtMoney(f.net_a_payer)}</td>
+                <td>${badgeStatut(f.statut)}</td>
+              </tr>`).join('') : '<tr><td colspan="5" class="text-center text-gray-400 py-4">Aucune fiche de paie</td></tr>'}</tbody>
+            </table></div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  } catch(e) { pc.innerHTML = errHtml(e); }
+}
+
+function renderContratRows(profs) {
+  if (!profs.length) return '<tr><td colspan="6" class="text-center text-gray-400 py-6">Aucun professeur</td></tr>';
+  const w = window._fpContrats || {};
+  return profs.map(p => {
+    const c = w[p.id] || {};
+    return `<tr>
+      <td>
+        <div class="flex items-center gap-2">
+          <div class="avatar avatar-sm" style="background:${avatarColor(p.nom)}">${avatarLetters(p.nom,p.prenom)}</div>
+          <div>
+            <div class="font-medium">${sanitize(p.prenom)} ${sanitize(p.nom)}</div>
+            <div class="text-xs text-gray-400">${sanitize(p.email)}</div>
+          </div>
+        </div>
+      </td>
+      <td><span class="badge badge-blue">${sanitize(c.type_contrat||'N/A')}</span></td>
+      <td class="font-bold text-green-700">${c.salaire_base?fmtMoney(c.salaire_base):'<span class="text-gray-400">Non défini</span>'}</td>
+      <td>${c.taux_horaire?fmtMoney(c.taux_horaire)+'/h':'<span class="text-gray-400">-</span>'}</td>
+      <td>${c.nb_heures_semaine||'<span class="text-gray-400">-</span>'} h/sem</td>
+      <td>
+        <div class="flex gap-1">
+          <button class="btn btn-sm btn-outline" onclick="voirRecapProf('${p.id}')"><i class="fas fa-chart-line"></i> Récap</button>
+          <button class="btn btn-sm btn-primary" onclick="openContratForm('${p.id}')"><i class="fas fa-edit"></i></button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function switchFPTab(tab) {
+  ['contrats','heures','fiches'].forEach(t => {
+    const el = $(`fp-${t}`);
+    const tabEl = $(`tab-${t}`);
+    if (el) el.style.display = t === tab ? 'block' : 'none';
+    if (tabEl) tabEl.classList.toggle('active', t === tab);
+  });
+}
+
+async function chargerHeures() {
+  const profId = $('fp-heures-prof')?.value || '';
+  const mois = $('fp-heures-mois')?.value || '';
+  const annee = mois ? '2024' : '';
+  const cont = $('fp-heures-content');
+  if (!cont) return;
+  cont.innerHTML = '<div class="flex justify-center p-8"><span class="loading-spinner"></span></div>';
+  try {
+    const params = { annee_scolaire: '2024-2025' };
+    if (profId) params.prof_id = profId;
+    if (mois && annee) { params.mois = mois; params.annee = annee; }
+    const r = await API.get('/finances-profs/heures', { params });
+    const heures = r.data.data || [];
+    const total = r.data.total_heures || 0;
+    const validees = r.data.total_validees || 0;
+    cont.innerHTML = `
+      <div class="flex gap-4 mb-3 text-sm">
+        <div class="p-2 bg-blue-50 rounded px-4"><span class="font-bold text-blue-700">${total.toFixed(1)} h</span><span class="text-gray-400 ml-2">Total</span></div>
+        <div class="p-2 bg-green-50 rounded px-4"><span class="font-bold text-green-700">${validees.toFixed(1)} h</span><span class="text-gray-400 ml-2">Validées</span></div>
+        <div class="p-2 bg-yellow-50 rounded px-4"><span class="font-bold text-yellow-700">${(total-validees).toFixed(1)} h</span><span class="text-gray-400 ml-2">En attente</span></div>
+      </div>
+      <div class="card"><div class="table-container">
+        <table><thead><tr><th>Professeur</th><th>Date</th><th>Horaires</th><th>Heures</th><th>Type</th><th>Classe</th><th>Statut</th><th>Actions</th></tr></thead>
+        <tbody>${heures.length ? heures.map(h=>`<tr>
+          <td class="font-medium">${sanitize(h.prof_prenom)} ${sanitize(h.prof_nom)}</td>
+          <td>${fmtDate(h.date_cours)}</td>
+          <td class="text-sm text-gray-500">${sanitize(h.heure_debut||'')} – ${sanitize(h.heure_fin||'')}</td>
+          <td class="font-bold">${(h.nb_heures||0).toFixed(1)} h</td>
+          <td><span class="badge badge-blue">${sanitize(h.type_heure||'cours')}</span></td>
+          <td class="text-sm">${sanitize(h.nom_classe||'')}</td>
+          <td>${h.valide ? '<span class="badge badge-green">Validé</span>' : '<span class="badge badge-yellow">En attente</span>'}</td>
+          <td>
+            ${!h.valide ? `<button class="btn btn-sm btn-primary" onclick="validerHeure('${h.id}')"><i class="fas fa-check"></i></button>` : ''}
+            ${!h.valide ? `<button class="btn btn-sm btn-danger" onclick="supprimerHeure('${h.id}')"><i class="fas fa-trash"></i></button>` : ''}
+          </td>
+        </tr>`).join('') : '<tr><td colspan="8" class="text-center text-gray-400 py-6">Aucune heure enregistrée</td></tr>'}</tbody>
+        </table>
+      </div></div>`;
+  } catch(e) { cont.innerHTML = `<div class="text-red-400 p-4">${e.message}</div>`; }
+}
+
+async function chargerFiches() {
+  const profId = $('fp-fiches-prof')?.value || '';
+  const mois = $('fp-fiches-mois')?.value || '';
+  const cont = $('fp-fiches-content');
+  if (!cont) return;
+  cont.innerHTML = '<div class="flex justify-center p-8"><span class="loading-spinner"></span></div>';
+  const MOIS_FR = ['','Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  try {
+    const params = { annee_scolaire: '2024-2025' };
+    if (profId) params.prof_id = profId;
+    if (mois) { params.mois = mois; params.annee = '2024'; }
+    const r = await API.get('/finances-profs/fiches', { params });
+    const fiches = r.data.data || [];
+    cont.innerHTML = `
+      <div class="card"><div class="table-container">
+        <table><thead><tr><th>Professeur</th><th>Période</th><th>Salaire base</th><th>Heures</th><th>Primes</th><th>Retenues</th><th>Net à payer</th><th>Statut</th><th>Actions</th></tr></thead>
+        <tbody>${fiches.length ? fiches.map(f=>`<tr>
+          <td><div class="flex items-center gap-2">
+            <div class="avatar avatar-sm" style="background:${avatarColor(f.nom)}">${avatarLetters(f.nom,f.prenom)}</div>
+            <span class="font-medium">${sanitize(f.prenom)} ${sanitize(f.nom)}</span>
+          </div></td>
+          <td class="font-medium">${MOIS_FR[f.mois]} ${f.annee}</td>
+          <td>${fmtMoney(f.salaire_base)}</td>
+          <td class="text-sm text-gray-500">${(f.nb_heures_effectuees||0).toFixed(1)} h</td>
+          <td class="text-green-600">+${fmtMoney(f.primes||0)}</td>
+          <td class="text-red-500">-${fmtMoney(f.retenues||0)}</td>
+          <td class="font-bold text-green-700 text-base">${fmtMoney(f.net_a_payer)}</td>
+          <td>${badgeStatut(f.statut)}</td>
+          <td>
+            <div class="flex gap-1">
+              ${f.statut==='brouillon'?`<button class="btn btn-sm btn-primary" onclick="validerFiche('${f.id}','valide')"><i class="fas fa-check"></i> Valider</button>`:''}
+              ${f.statut==='valide'?`<button class="btn btn-sm" style="background:#7c3aed;color:white" onclick="validerFiche('${f.id}','paye')"><i class="fas fa-money-bill"></i> Payer</button>`:''}
+              <button class="btn btn-sm btn-outline" onclick="imprimerFiche('${f.id}')"><i class="fas fa-print"></i></button>
+            </div>
+          </td>
+        </tr>`).join('') : '<tr><td colspan="9" class="text-center text-gray-400 py-6">Aucune fiche de paie</td></tr>'}</tbody>
+        </table>
+      </div></div>`;
+  } catch(e) { cont.innerHTML = `<div class="text-red-400 p-4">${e.message}</div>`; }
+}
+
+async function validerHeure(id) {
+  try {
+    await API.put(`/finances-profs/heures/${id}/valider`);
+    toast('Heure validée !', 'success'); chargerHeures();
+  } catch(e) { toast(e.response?.data?.error || e.message, 'error'); }
+}
+
+async function supprimerHeure(id) {
+  if (!confirm('Supprimer cette heure ?')) return;
+  try {
+    await API.delete(`/finances-profs/heures/${id}`);
+    toast('Heure supprimée.', 'success'); chargerHeures();
+  } catch(e) { toast(e.response?.data?.error || e.message, 'error'); }
+}
+
+async function validerFiche(id, statut) {
+  const label = statut === 'paye' ? 'Marquer comme payée' : 'Valider';
+  openModal(`${label} cette fiche`, `
+    <form id="valider-fiche-form">
+      <div class="form-group"><label class="form-label">Mode de paiement</label>
+        <select name="mode_paiement" class="form-select">
+          <option value="virement">Virement bancaire</option>
+          <option value="especes">Espèces</option>
+          <option value="mobile_money">Mobile Money</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Référence paiement</label>
+        <input name="reference_paiement" class="form-input" placeholder="ex: VIR-2024-001">
+      </div>
+    </form>`,
+  async () => {
+    const data = Object.fromEntries(new FormData($('valider-fiche-form')));
+    try {
+      await API.put(`/finances-profs/fiches/${id}/valider`, { statut, ...data });
+      toast(statut === 'paye' ? 'Salaire marqué comme payé !' : 'Fiche validée !', 'success');
+      closeModal(); chargerFiches();
+    } catch(e) { toast(e.response?.data?.error || e.message, 'error'); }
+  });
+}
+
+function openContratForm(profId = null) {
+  const profs = window._fpProfs || [];
+  openModal(profId ? 'Modifier contrat' : 'Nouveau contrat professeur', `
+  <form id="contrat-form">
+    <div class="form-group"><label class="form-label">Professeur <span class="required">*</span></label>
+      <select name="professeur_id" class="form-select" required ${profId?'disabled':''}>
+        <option value="">-- Choisir --</option>
+        ${profs.map(p=>`<option value="${p.id}" ${profId===p.id?'selected':''}>${sanitize(p.prenom)} ${sanitize(p.nom)}</option>`).join('')}
+      </select>
+      ${profId?`<input type="hidden" name="professeur_id" value="${profId}">` : ''}
+    </div>
+    <div class="form-grid">
+      <div class="form-group"><label class="form-label">Type de contrat</label>
+        <select name="type_contrat" class="form-select">
+          <option value="CDI">CDI</option><option value="CDD">CDD</option>
+          <option value="Vacataire">Vacataire</option><option value="Stage">Stage</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Date de début</label>
+        <input name="date_debut" type="date" class="form-input" value="${new Date().toISOString().split('T')[0]}">
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="form-group"><label class="form-label">Salaire de base (FCFA)</label>
+        <input name="salaire_base" type="number" class="form-input" placeholder="ex: 400000" min="0">
+      </div>
+      <div class="form-group"><label class="form-label">Taux horaire (FCFA/h)</label>
+        <input name="taux_horaire" type="number" class="form-input" placeholder="ex: 4500" min="0">
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="form-group"><label class="form-label">Heures par semaine</label>
+        <input name="nb_heures_semaine" type="number" class="form-input" placeholder="ex: 18" min="0">
+      </div>
+      <div class="form-group"><label class="form-label">Date de fin (optionnel)</label>
+        <input name="date_fin" type="date" class="form-input">
+      </div>
+    </div>
+  </form>`,
+  async () => {
+    const data = Object.fromEntries(new FormData($('contrat-form')));
+    // Convertir les champs numériques
+    ['salaire_base','taux_horaire','nb_heures_semaine'].forEach(k => {
+      if (data[k]) data[k] = parseFloat(data[k]);
+    });
+    try {
+      await API.post('/finances-profs/contrats', data);
+      toast('Contrat enregistré !', 'success'); closeModal(); renderFinancesProfs();
+    } catch(e) { toast(e.response?.data?.error || e.message, 'error'); }
+  });
+}
+
+function openSaisirHeures() {
+  const profs = window._fpProfs || [];
+  const today = new Date().toISOString().split('T')[0];
+  openModal('Saisir heures de travail', `
+  <form id="heures-form">
+    ${canDo('admin','secretariat') ? `
+    <div class="form-group"><label class="form-label">Professeur <span class="required">*</span></label>
+      <select name="professeur_id" class="form-select" required>
+        <option value="">-- Choisir --</option>
+        ${profs.map(p=>`<option value="${p.id}">${sanitize(p.prenom)} ${sanitize(p.nom)}</option>`).join('')}
+      </select>
+    </div>` : ''}
+    <div class="form-grid">
+      <div class="form-group"><label class="form-label">Date <span class="required">*</span></label>
+        <input name="date_cours" type="date" class="form-input" value="${today}" required>
+      </div>
+      <div class="form-group"><label class="form-label">Type d'heure</label>
+        <select name="type_heure" class="form-select">
+          <option value="cours">Cours</option><option value="surveillance">Surveillance</option>
+          <option value="reunion">Réunion</option><option value="remplacement">Remplacement</option>
+          <option value="autre">Autre</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="form-group"><label class="form-label">Heure début <span class="required">*</span></label>
+        <input name="heure_debut" type="time" class="form-input" required value="08:00">
+      </div>
+      <div class="form-group"><label class="form-label">Heure fin <span class="required">*</span></label>
+        <input name="heure_fin" type="time" class="form-input" required value="10:00">
+      </div>
+    </div>
+    <div class="text-xs text-gray-400 text-center">⏱ Les heures seront calculées automatiquement</div>
+  </form>`,
+  async () => {
+    const data = Object.fromEntries(new FormData($('heures-form')));
+    data.annee_scolaire = '2024-2025';
+    if (!data.professeur_id) data.professeur_id = currentUser.id;
+    try {
+      await API.post('/finances-profs/heures', [data]);
+      toast('Heures enregistrées !', 'success'); closeModal(); chargerHeures();
+    } catch(e) { toast(e.response?.data?.error || e.message, 'error'); }
+  });
+}
+
+function openGenererFiche() {
+  const profs = window._fpProfs || [];
+  const now = new Date();
+  openModal('Générer une fiche de paie', `
+  <form id="fiche-form">
+    <div class="form-group"><label class="form-label">Professeur <span class="required">*</span></label>
+      <select name="professeur_id" class="form-select" required>
+        <option value="">-- Choisir --</option>
+        ${profs.map(p=>`<option value="${p.id}">${sanitize(p.prenom)} ${sanitize(p.nom)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-grid">
+      <div class="form-group"><label class="form-label">Mois <span class="required">*</span></label>
+        <select name="mois" class="form-select" required>
+          ${['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'].map((m,i)=>
+            `<option value="${i+1}" ${i+1===now.getMonth()+1?'selected':''}>${m}</option>`
+          ).join('')}
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Année <span class="required">*</span></label>
+        <input name="annee" type="number" class="form-input" value="${now.getFullYear()}" min="2020">
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="form-group"><label class="form-label">Primes (FCFA)</label>
+        <input name="primes" type="number" class="form-input" value="0" min="0">
+      </div>
+      <div class="form-group"><label class="form-label">Retenues (FCFA)</label>
+        <input name="retenues" type="number" class="form-input" value="0" min="0">
+      </div>
+    </div>
+    <div class="p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
+      <i class="fas fa-info-circle mr-1"></i>
+      La fiche sera calculée automatiquement à partir des heures validées du mois sélectionné.
+    </div>
+  </form>`,
+  async () => {
+    const data = Object.fromEntries(new FormData($('fiche-form')));
+    data.mois = parseInt(data.mois);
+    data.annee = parseInt(data.annee);
+    data.primes = parseFloat(data.primes) || 0;
+    data.retenues = parseFloat(data.retenues) || 0;
+    data.annee_scolaire = '2024-2025';
+    try {
+      const r = await API.post('/finances-profs/fiches/generer', data);
+      if (r.data.success) {
+        const f = r.data.data;
+        toast(`✅ ${r.data.message}`, 'success');
+        closeModal();
+        // Afficher aperçu
+        openModal(`Fiche de paie — ${f.prenom} ${f.nom}`, `
+          <div class="text-center mb-4">
+            <div class="avatar mx-auto mb-2" style="background:${avatarColor(f.nom)};width:56px;height:56px;font-size:1.3rem">${avatarLetters(f.nom,f.prenom)}</div>
+            <div class="font-bold text-lg">${sanitize(f.prenom)} ${sanitize(f.nom)}</div>
+            <div class="text-gray-400">${sanitize(f.periode)} — ${sanitize(f.contrat_type)}</div>
+          </div>
+          <div class="space-y-2 text-sm">
+            ${[[`Salaire de base`,fmtMoney(f.salaire_base),''],
+               [`Heures effectuées`,`${f.nb_heures_effectuees.toFixed(1)} h`,'text-blue-600'],
+               [`Montant heures`,`+${fmtMoney(f.montant_heures)}`,'text-green-600'],
+               [`Primes`,`+${fmtMoney(f.primes)}`,'text-green-600'],
+               [`Retenues`,`-${fmtMoney(f.retenues)}`,'text-red-500']].map(([l,v,cls])=>`
+            <div class="flex justify-between p-2 bg-gray-50 rounded">
+              <span class="text-gray-500">${l}</span>
+              <span class="font-medium ${cls}">${v}</span>
+            </div>`).join('')}
+            <div class="flex justify-between p-3 bg-green-100 rounded-lg border border-green-300 mt-3">
+              <span class="font-bold text-green-800">NET À PAYER</span>
+              <span class="font-bold text-green-800 text-lg">${fmtMoney(f.net_a_payer)}</span>
+            </div>
+          </div>`,
+        null);
+        chargerFiches();
+      }
+    } catch(e) { toast(e.response?.data?.error || e.message, 'error'); }
+  });
+}
+
+function openGenererTous() {
+  const now = new Date();
+  openModal('Générer les fiches pour tous les professeurs', `
+  <div class="form-grid" id="gen-tous-form">
+    <div class="form-group"><label class="form-label">Mois</label>
+      <select id="gen-mois" class="form-select">
+        ${['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'].map((m,i)=>
+          `<option value="${i+1}" ${i+1===now.getMonth()+1?'selected':''}>${m}</option>`
+        ).join('')}
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">Année</label>
+      <input id="gen-annee" type="number" class="form-input" value="${now.getFullYear()}">
+    </div>
+  </div>
+  <div class="p-3 bg-yellow-50 rounded-lg text-sm text-yellow-700 mt-3">
+    <i class="fas fa-exclamation-triangle mr-1"></i>
+    Cette action génère une fiche brouillon pour TOUS les professeurs actifs. Les fiches existantes en brouillon seront remplacées.
+  </div>`,
+  async () => {
+    const mois = parseInt($('gen-mois').value);
+    const annee = parseInt($('gen-annee').value);
+    try {
+      const r = await API.post('/finances-profs/fiches/generer-tous', { mois, annee, annee_scolaire: '2024-2025' });
+      toast(`✅ ${r.data.message}`, 'success'); closeModal(); chargerFiches();
+    } catch(e) { toast(e.response?.data?.error || e.message, 'error'); }
+  });
+}
+
+async function voirRecapProf(profId) {
+  try {
+    const r = await API.get(`/finances-profs/recap/${profId}`);
+    const d = r.data.data;
+    const p = d.professeur;
+    const c = d.contrat;
+    const MOIS_FR = ['','Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+    openModal(`Récapitulatif — ${p.prenom} ${p.nom}`, `
+      <div class="grid grid-cols-2 gap-3 mb-4 text-sm">
+        ${c ? [['Type contrat',c.type_contrat],['Salaire base',fmtMoney(c.salaire_base)],['Taux horaire',fmtMoney(c.taux_horaire)+'/h'],['H/semaine',c.nb_heures_semaine+' h']]
+          .map(([l,v])=>`<div class="p-2 bg-gray-50 rounded"><div class="text-gray-400 text-xs">${l}</div><div class="font-semibold">${v}</div></div>`).join('')
+          : '<div class="col-span-2 text-gray-400 text-center p-3">Pas de contrat actif</div>'}
+      </div>
+      <div class="font-semibold text-sm mb-2">Heures par mois</div>
+      ${(d.heures_par_mois||[]).map(m=>`<div class="flex justify-between text-sm p-2 border-b">
+        <span>${m.mois_annee}</span>
+        <span class="font-bold">${(m.total||0).toFixed(1)} h</span>
+        <span class="text-green-600">${(m.validees||0).toFixed(1)} h validées</span>
+      </div>`).join('') || '<p class="text-gray-400 text-sm">Aucune heure</p>'}
+      <div class="font-semibold text-sm mb-2 mt-4">Dernières fiches de paie</div>
+      ${(d.fiches_paie||[]).slice(0,6).map(f=>`<div class="flex justify-between text-sm p-2 border-b">
+        <span>${MOIS_FR[f.mois]} ${f.annee}</span>
+        <span class="font-bold text-green-700">${fmtMoney(f.net_a_payer)}</span>
+        <span>${badgeStatut(f.statut)}</span>
+      </div>`).join('') || '<p class="text-gray-400 text-sm">Aucune fiche</p>'}`,
+    null);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function imprimerFiche(id) {
+  try {
+    const r = await API.get('/finances-profs/fiches', { params: { annee_scolaire: '2024-2025' } });
+    const f = (r.data.data||[]).find(x => x.id === id);
+    if (!f) { toast('Fiche introuvable', 'error'); return; }
+    const MOIS_FR = ['','Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+    const w = window.open('', '_blank');
+    w.document.write(`<html><head><title>Fiche de paie — ${f.prenom} ${f.nom}</title>
+    <style>body{font-family:sans-serif;padding:2rem;max-width:600px;margin:auto}
+    h1{color:#1a6b3c;border-bottom:2px solid #1a6b3c;padding-bottom:.5rem}
+    .row{display:flex;justify-content:space-between;padding:.5rem 0;border-bottom:1px solid #eee}
+    .total{background:#e8f5ee;padding:1rem;border-radius:8px;margin-top:1rem;font-size:1.2rem;font-weight:bold;display:flex;justify-content:space-between;color:#1a6b3c}
+    .badge{display:inline-block;padding:.2rem .6rem;border-radius:20px;font-size:.75rem;font-weight:600}
+    @media print{button{display:none}}</style></head><body>
+    <div style="text-align:center;margin-bottom:2rem">
+      <div style="font-size:1.5rem">🎓 LYCÉE PRIVÉ GABON</div>
+      <div style="color:#666">Système de Gestion Scolaire</div>
+    </div>
+    <h1>FICHE DE PAIE — ${MOIS_FR[f.mois]} ${f.annee}</h1>
+    <div class="row"><span>Professeur</span><strong>${f.prenom} ${f.nom}</strong></div>
+    <div class="row"><span>Email</span><span>${f.email}</span></div>
+    <div class="row"><span>Année scolaire</span><span>${f.annee_scolaire}</span></div>
+    <div class="row"><span>Salaire de base</span><span>${Number(f.salaire_base).toLocaleString('fr-FR')} FCFA</span></div>
+    <div class="row"><span>Heures effectuées</span><span>${(f.nb_heures_effectuees||0).toFixed(1)} h</span></div>
+    <div class="row"><span>Montant heures supp.</span><span>+ ${Number(f.montant_heures).toLocaleString('fr-FR')} FCFA</span></div>
+    <div class="row"><span>Primes</span><span>+ ${Number(f.primes||0).toLocaleString('fr-FR')} FCFA</span></div>
+    <div class="row"><span>Retenues</span><span>- ${Number(f.retenues||0).toLocaleString('fr-FR')} FCFA</span></div>
+    <div class="total"><span>NET À PAYER</span><span>${Number(f.net_a_payer).toLocaleString('fr-FR')} FCFA</span></div>
+    ${f.date_paiement?`<p style="margin-top:1rem;color:#666">Date de paiement : ${new Date(f.date_paiement).toLocaleDateString('fr-FR')}</p>`:''}
+    <div style="margin-top:3rem;display:flex;justify-content:space-between;color:#999;font-size:.8rem">
+      <div>Signature du directeur</div><div>Signature du bénéficiaire</div>
+    </div>
+    <div style="text-align:center;margin-top:2rem"><button onclick="window.print()" style="background:#1a6b3c;color:white;border:none;padding:.5rem 2rem;border-radius:8px;cursor:pointer;font-size:1rem">🖨️ Imprimer</button></div>
+    </body></html>`);
+  } catch(e) { toast(e.message, 'error'); }
 }

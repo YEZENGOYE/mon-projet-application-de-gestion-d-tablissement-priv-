@@ -103,7 +103,7 @@ cartesRoutes.get('/verifier/:id', async (c) => {
 // ---- STATISTIQUES ----
 export const statsRoutes = new Hono<{ Bindings: Bindings }>();
 
-statsRoutes.get('/dashboard', authMiddleware(['admin', 'secretariat']), async (c) => {
+statsRoutes.get('/dashboard', authMiddleware(['admin', 'secretariat', 'professeur']), async (c) => {
   try {
     const [eleves, classes, users, factures, absences, notes] = await Promise.all([
       c.env.DB.prepare("SELECT COUNT(*) as total FROM eleves WHERE actif = 1").first<any>(),

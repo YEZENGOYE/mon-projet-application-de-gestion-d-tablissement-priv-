@@ -74,7 +74,7 @@ usersRoutes.get('/:id', authMiddleware(), async (c) => {
   }
 });
 
-usersRoutes.post('/', authMiddleware(['admin']), async (c) => {
+usersRoutes.post('/', authMiddleware(['admin', 'secretariat']), async (c) => {
   try {
     const { nom, prenom, email, mot_de_passe, role, telephone } = await c.req.json();
     if (!nom || !prenom || !email || !mot_de_passe || !role) {
@@ -98,7 +98,7 @@ usersRoutes.post('/', authMiddleware(['admin']), async (c) => {
   }
 });
 
-usersRoutes.put('/:id', authMiddleware(['admin']), async (c) => {
+usersRoutes.put('/:id', authMiddleware(['admin', 'secretariat']), async (c) => {
   try {
     const id = c.req.param('id');
     const { nom, prenom, telephone, actif, role } = await c.req.json();
@@ -120,7 +120,7 @@ usersRoutes.put('/:id', authMiddleware(['admin']), async (c) => {
   }
 });
 
-usersRoutes.delete('/:id', authMiddleware(['admin']), async (c) => {
+usersRoutes.delete('/:id', authMiddleware(['admin', 'secretariat']), async (c) => {
   try {
     const id = c.req.param('id');
     await c.env.DB.prepare('UPDATE users SET actif = 0 WHERE id = ?').bind(id).run();

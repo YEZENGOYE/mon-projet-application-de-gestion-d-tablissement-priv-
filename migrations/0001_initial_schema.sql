@@ -315,3 +315,65 @@ CREATE INDEX IF NOT EXISTS idx_messages_destinataire ON messages(destinataire_id
 CREATE INDEX IF NOT EXISTS idx_messages_expediteur ON messages(expediteur_id);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+
+-- ============================================================
+-- TABLES FINANCES PROFESSEURS
+-- ============================================================
+
+-- Contrats professeurs
+CREATE TABLE IF NOT EXISTS contrats_professeurs (
+  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+  professeur_id TEXT NOT NULL REFERENCES users(id),
+  type_contrat TEXT CHECK(type_contrat IN ('CDI','CDD','vacataire','temps_partiel')) DEFAULT 'CDI',
+  salaire_base REAL DEFAULT 0,
+  taux_horaire REAL DEFAULT 0,
+  date_debut DATE,
+  date_fin DATE,
+  nb_heures_semaine INTEGER DEFAULT 0,
+  statut TEXT DEFAULT 'actif' CHECK(statut IN ('actif','suspendu','termine')),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Heures de travail (pointage)
+CREATE TABLE IF NOT EXISTS heures_travail (
+  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+  professeur_id TEXT NOT NULL REFERENCES users(id),
+  classe_id TEXT REFERENCES classes(id),
+  matiere_id TEXT REFERENCES matieres(id),
+  date_cours DATE NOT NULL,
+  heure_debut TEXT NOT NULL,
+  heure_fin TEXT NOT NULL,
+  nb_heures REAL NOT NULL,
+  type_heure TEXT CHECK(type_heure IN ('cours','surveillance','reunion','rattrapage','autre')) DEFAULT 'cours',
+  annee_scolaire TEXT DEFAULT '2024-2025',
+  valide INTEGER DEFAULT 0,
+  valide_par TEXT REFERENCES users(id),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Fiches de paie
+CREATE TABLE IF NOT EXISTS fiches_paie (
+  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+  professeur_id TEXT NOT NULL REFERENCES users(id),
+  mois INTEGER NOT NULL,
+  annee INTEGER NOT NULL,
+  annee_scolaire TEXT DEFAULT '2024-2025',
+  salaire_base REAL DEFAULT 0,
+  nb_heures_effectuees REAL DEFAULT 0,
+  montant_heures REAL DEFAULT 0,
+  primes REAL DEFAULT 0,
+  retenues REAL DEFAULT 0,
+  net_a_payer REAL DEFAULT 0,
+  statut TEXT DEFAULT 'brouillon' CHECK(statut IN ('brouillon','valide','paye')),
+  date_paiement DATE,
+  mode_paiement TEXT,
+  reference_paiement TEXT,
+  genere_par TEXT REFERENCES users(id),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Index
+CREATE INDEX IF NOT EXISTS idx_heures_prof ON heures_travail(professeur_id);
+CREATE INDEX IF NOT EXISTS idx_heures_date ON heures_travail(date_cours);
+CREATE INDEX IF NOT EXISTS idx_fiches_prof ON fiches_paie(professeur_id);
+CREATE INDEX IF NOT EXISTS idx_contrats_prof ON contrats_professeurs(professeur_id);
